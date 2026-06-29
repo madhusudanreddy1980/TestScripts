@@ -1,0 +1,20 @@
+# UAT environment configuration
+env: uat
+
+web:
+  base_url: "https://uat.example.com"
+  timeout_ms: 45000
+
+api:
+  base_url: "https://api-uat.example.com"
+  timeout_s: 45
+
+db:
+  dialect: "postgresql+psycopg2"
+  host: "db-uat.example.com"
+  port: 5432
+  name: "appdb_uat"
+
+integrations:
+  jira_project: "UAT"
+  ado_test_plan: "UAT-Plan"

@@ -1,0 +1,21 @@
+# Dev environment configuration
+env: dev
+
+web:
+  base_url: "https://dev.example.com"
+  timeout_ms: 30000
+
+api:
+  base_url: "https://api-dev.example.com"
+  timeout_s: 30
+
+db:
+  dialect: "postgresql+psycopg2"
+  host: "db-dev.example.com"
+  port: 5432
+  name: "appdb_dev"
+  # user / password come from env vars (DB_USER / DB_PASSWORD)
+
+integrations:
+  jira_project: "DEV"
+  ado_test_plan: "Dev-Plan"

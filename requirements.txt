@@ -1,0 +1,40 @@
+# ── Core test runner ──────────────────────────────────────────────
+pytest==8.2.2
+pytest-xdist==3.6.1            # parallel execution
+pytest-rerunfailures==14.0     # auto-correct / retry on flaky failures
+pytest-metadata==3.1.1
+
+# ── Playwright (GUI / E2E) ────────────────────────────────────────
+playwright==1.45.0
+pytest-playwright==0.5.1
+
+# ── API testing ───────────────────────────────────────────────────
+requests==2.32.3
+jsonschema==4.22.0
+
+# ── DB testing ────────────────────────────────────────────────────
+SQLAlchemy==2.0.31
+psycopg2-binary==2.9.9         # PostgreSQL
+PyMySQL==1.1.1                 # MySQL
+# pyodbc / cx_Oracle can be added per-environment
+
+# ── Auto data generators ──────────────────────────────────────────
+Faker==26.0.0
+
+# ── Config / env switching ────────────────────────────────────────
+PyYAML==6.0.1
+python-dotenv==1.0.1
+pydantic==2.8.2
+pydantic-settings==2.3.4
+
+# ── Reporting (switchable) ────────────────────────────────────────
+allure-pytest==2.13.5
+pytest-html==4.1.1
+
+# ── Integrations (Jira / ADO / prompt layer) ──────────────────────
+jira==3.8.0
+azure-devops==7.1.0b4
+
+# ── Utilities ─────────────────────────────────────────────────────
+tenacity==8.5.0                # retry/backoff for self-healing & auto-correct
+rich==13.7.1                   # pretty logging

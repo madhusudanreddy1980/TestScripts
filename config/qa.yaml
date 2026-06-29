@@ -1,0 +1,20 @@
+# QA environment configuration
+env: qa
+
+web:
+  base_url: "https://qa.example.com"
+  timeout_ms: 30000
+
+api:
+  base_url: "https://api-qa.example.com"
+  timeout_s: 30
+
+db:
+  dialect: "postgresql+psycopg2"
+  host: "db-qa.example.com"
+  port: 5432
+  name: "appdb_qa"
+
+integrations:
+  jira_project: "QA"
+  ado_test_plan: "QA-Plan"
