@@ -229,7 +229,7 @@ public final class TestRun {
         } catch (IOException e) {
             throw new ConfigException("cannot write generated file", e);
         }
-        set(RunState.DATA_GENERATED, records.size() + " records → " + fileName + " sha256=" + sha256.substring(0, 12));
+        set(RunState.DATA_GENERATED, records.size() + " records -> " + fileName + " sha256=" + sha256.substring(0, 12));
     }
 
     // -------------------------------------------------------------- validate
@@ -472,7 +472,7 @@ public final class TestRun {
     public synchronized RunResult finish() {
         String[] v = verdict();
         int code = Integer.parseInt(v[1]);
-        event("RESULT", v[0] + " (exit " + code + ") — " + v[2]);
+        event("RESULT", v[0] + " (exit " + code + ") - " + v[2]);
         Path[] paths = ReportWriter.write(this, v[0], code, v[2]);
         result = new RunResult(runId, v[0], code, state.name(), paths[0], paths[1], v[2]);
         return result;
