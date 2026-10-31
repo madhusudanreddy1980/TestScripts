@@ -1,0 +1,26 @@
+pre_submit_rules:
+  - {id: BR-PAY-001, field: amount, check: max_decimals, value: 2}
+  - {id: BR-PAY-002, field: account_no, check: regex, value: '^\d{12}$'}
+
+expected_rejections:
+  - {id: REJ-PAY-001, when: "amount <= 0", reason: INVALID_AMOUNT}
+  - {id: REJ-PAY-002, when: "!(currency =~ ['INR', 'USD', 'EUR', 'GBP'])", reason: INVALID_CURRENCY}
+
+target_mapping:
+  account_no: {field: account_no}
+  amount:     {field: amount, transform: decimal2}
+  currency:   {field: currency}
+  value_date: {field: value_date}
+  status:     {value: POSTED}
+
+count_reconciliation:
+  - "records_read == submitted"
+  - "records_read == records_processed + records_rejected"
+  - "records_processed == records_inserted"
+  - "records_updated == 0"
+  - "records_inserted == expected_inserted"
+  - "records_rejected == expected_rejected"
+  - "reject_rows == expected_rejected"
+  - "target_rows_after == target_rows_before + expected_inserted"
+
+guard_unrelated_rows: true

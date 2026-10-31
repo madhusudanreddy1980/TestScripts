@@ -20,3 +20,8 @@ test-results/
 # ── IDE ───────────────────────────────────────────────────────────
 .idea/
 .vscode/
+
+# Java / Maven
+target/
+var/
+*.iml

@@ -1,0 +1,44 @@
+# Which cloud profile, which physical database and which guard-rails apply per environment.
+# Select with --env or BATCHAUTO_ENV. Jobs reference *logical* database names only.
+environments:
+  local:
+    description: Developer machine — local storage, SQLite, simulated batch processor
+    cloud_profile: local
+    database_profiles:
+      core_db: local_sqlite
+    allow_submission: true
+    allow_invalid_submission: true     # negative tests may push malformed files (non-prod only)
+    monitor_overrides:
+      polling_interval_seconds: 0.2
+      timeout_seconds: 20
+    reports_dir: "{data_dir}/reports"
+
+  qa_gcp:
+    description: QA on GCP (Phase 6 — unverified)
+    cloud_profile: gcp_qa
+    database_profiles:
+      core_db: qa_postgres
+    allow_submission: true
+    allow_invalid_submission: true
+
+  qa_aws:
+    description: QA on AWS (Phase 6 — unverified)
+    cloud_profile: aws_qa
+    database_profiles:
+      core_db: qa_postgres
+    allow_submission: true
+
+  qa_azure:
+    description: QA on Azure (Phase 6 — unverified)
+    cloud_profile: azure_qa
+    database_profiles:
+      core_db: qa_postgres
+    allow_submission: true
+
+  prod_readonly:
+    description: Production — eligibility queries only; submission is always refused
+    cloud_profile: aws_qa
+    database_profiles:
+      core_db: qa_postgres
+    allow_submission: false
+    is_production: true

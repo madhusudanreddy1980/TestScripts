@@ -1,0 +1,21 @@
+# Credentials are never stored here. Cloud adapters use the platform default chain:
+# GCP workload identity / ADC, AWS IAM role, Azure managed identity (DefaultAzureCredential).
+profiles:
+  local:
+    provider: local
+    root: "{data_dir}/storage"
+
+  gcp_qa:
+    provider: gcs
+    bucket: example-qa-batch-inbound
+    project: example-qa-project
+
+  aws_qa:
+    provider: s3
+    bucket: example-qa-batch-inbound
+    region: ap-south-1
+
+  azure_qa:
+    provider: azure_blob
+    account_url: https://exampleqabatch.blob.core.windows.net
+    container: inbound
