@@ -1,0 +1,68 @@
+# Example pipeline (not yet run in a real CI system).
+# Stage 1: build + all tests (unit, integration, end-to-end, Playwright UI) against the simulator.
+# Stage 2: one job against a real QA environment, gated on stage 1.
+name: batch-job-tests
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      env: {description: "Target environment", default: "qa_aws"}
+      job: {description: "Batch job id", default: "customer-import"}
+  schedule:
+    - cron: "30 1 * * 1-5"     # 07:00 IST weekdays
+
+jobs:
+  framework-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21", cache: maven}
+      # Playwright downloads Chromium on first use; install its OS dependencies up front.
+      - run: mvn -B -q exec:java -e -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install --with-deps chromium" -Dexec.classpathScope=test
+      - run: mvn -B verify
+      - run: java -jar target/batchauto.jar demo
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-evidence
+          path: |
+            target/surefire-reports/
+            target/playwright-traces/
+            var/reports/
+
+  qa-batch-run:
+    needs: framework-tests
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: {id-token: write, contents: read}      # OIDC → cloud role, no stored keys
+    concurrency: {group: "batch-${{ inputs.job || 'customer-import' }}-${{ inputs.env || 'qa_aws' }}", cancel-in-progress: false}
+    env:
+      BATCHAUTO_ENV: ${{ inputs.env || 'qa_aws' }}
+      BATCHAUTO_QA_DB_URL: ${{ secrets.BATCHAUTO_QA_DB_URL }}   # read-only DB user
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21", cache: maven}
+      - run: mvn -B -q -Pcloud -DskipTests package
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ secrets.QA_BATCH_ROLE_ARN }}", aws-region: ap-south-1}
+      # Run ID pinned to the workflow run: a re-run cannot double-submit (the ledger refuses it).
+      - run: |
+          set +e
+          java -jar target/batchauto.jar run --job "${{ inputs.job || 'customer-import' }}" --count 3 --submit --yes \
+               --run-id "gh-${{ github.run_id }}"
+          code=$?
+          case $code in
+            0) echo "PASS";;
+            1) echo "::error::Application defect — assertions failed";;
+            2) echo "::error::Configuration error or submission blocked";;
+            3) echo "::warning::Infrastructure error (storage/DB) — not an application defect";;
+            4) echo "::error::Batch timed out or never picked up the file";;
+            5) echo "::warning::Not enough eligible test data";;
+          esac
+          exit $code
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: qa-report, path: var/reports/}

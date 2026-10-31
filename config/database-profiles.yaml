@@ -1,0 +1,12 @@
+# JDBC URLs. Use url_env to read the URL from an environment variable / secret instead of git.
+# The framework always connects read-only (SQLite: SQLITE_OPEN_READONLY; others: Connection#setReadOnly).
+profiles:
+  local_sqlite:
+    url: "jdbc:sqlite:{data_dir}/demo.db"
+    read_only: true
+    query_timeout_seconds: 30
+
+  qa_postgres:
+    url_env: BATCHAUTO_QA_DB_URL      # e.g. jdbc:postgresql://host:5432/core?user=readonly_user&password=***
+    read_only: true
+    query_timeout_seconds: 60

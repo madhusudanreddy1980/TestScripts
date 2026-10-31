@@ -1,0 +1,38 @@
+# Blocking checks before the file leaves the framework (in addition to the XSD).
+pre_submit_rules:
+  - {id: BR-CUST-001, field: email, check: regex, value: '^[^@\s]+@[^@\s]+\.[^@\s]+$',
+     description: Email must be syntactically valid}
+  - {id: BR-CUST-002, field: credit_limit, check: max_decimals, value: 2}
+  - {id: BR-CUST-003, field: country, check: allowed, value: [IN, US, GB, in, us, gb]}
+
+# What the batch application is documented to reject (non-blocking: these are what we test).
+expected_rejections:
+  - {id: REJ-CUST-001, when: "credit_limit < 0", reason: NEGATIVE_CREDIT_LIMIT,
+     description: Negative credit limits are rejected record-by-record}
+
+# How each target column must look after processing (Validation C).
+target_mapping:
+  full_name:     {format: "{first_name} {last_name}", transform: trim}
+  email:         {field: email, transform: lower}
+  date_of_birth: {field: date_of_birth}
+  country:       {field: country, transform: upper}
+  credit_limit:  {field: credit_limit, transform: decimal2}
+  segment:
+    cases:
+      - {when: "credit_limit >= 100000", value: PREMIUM}
+    default: STANDARD
+
+# Job-specific count relationships (Validation B/E). Names: batch counters from the
+# status table, expected_* from pre-submission expectations, submitted, reject_rows,
+# target_rows_before / target_rows_after.
+count_reconciliation:
+  - "records_read == submitted"
+  - "records_read == records_processed + records_rejected"
+  - "records_processed == records_inserted + records_updated"
+  - "records_inserted == expected_inserted"
+  - "records_updated == expected_updated"
+  - "records_rejected == expected_rejected"
+  - "reject_rows == expected_rejected"
+  - "target_rows_after == target_rows_before + expected_inserted"
+
+guard_unrelated_rows: true
