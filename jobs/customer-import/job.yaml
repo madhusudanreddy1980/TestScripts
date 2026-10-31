@@ -1,0 +1,120 @@
+job_id: customer-import
+name: Customer Import (XML)
+description: Daily customer master upsert from partner XML feed
+database: core_db
+
+file:
+  format: xml
+  template: template.xml.ftl
+  schema_file: schema.xsd
+  schema_version: "1.0"
+  naming: "CUSTIMP_{run_id}.xml"
+  record_xpath: "/c:CustomerBatch/c:Customer"
+  namespaces: {c: "urn:example:batch:customer:v1"}
+  max_records: 5000
+
+fields:
+  - {name: customer_id,   type: string,  source_column: customer_id}
+  - {name: batch_ref,     type: string,  generator: run_sequence}
+  - {name: first_name,    type: string,  source_column: first_name, max_length: 50, overridable: true}
+  - {name: last_name,     type: string,  source_column: last_name,  max_length: 50, overridable: true}
+  - {name: email,         type: string,  source_column: email, sensitive: true, mask: email, overridable: true,
+     synthetic: "syn{i}.{run}@example.test"}
+  - {name: date_of_birth, type: date,    source_column: date_of_birth, sensitive: true, mask: full}
+  - {name: country,       type: string,  source_column: country_code, synthetic: "IN"}
+  - {name: credit_limit,  type: decimal, source_column: credit_limit, overridable: true}
+
+eligibility:
+  query_file: eligible-data.sql
+  key_column: customer_id
+  params: {status: ACTIVE}
+  page_size: 100
+  assertions:                         # independent re-check of every row the SQL returns
+    - "status == 'ACTIVE'"
+    - "email != null"
+
+inbound:
+  prefix: inbound/customer
+
+monitoring:
+  status_table: batch_execution_status
+  execution_id_column: execution_id
+  file_name_column: file_name
+  status_column: status
+  start_time_column: started_at
+  end_time_column: completed_at
+  error_column: error_message
+  count_columns:
+    records_read: records_read
+    records_processed: records_processed
+    records_inserted: records_inserted
+    records_updated: records_updated
+    records_rejected: records_rejected
+  running_statuses: [QUEUED, RUNNING]
+  success_statuses: [COMPLETED, COMPLETED_WITH_REJECTS]
+  failure_statuses: [FAILED, ABORTED]
+  polling_interval_seconds: 10
+  timeout_seconds: 1800
+
+target:
+  table: customer
+  key_column: customer_id
+  record_key_field: customer_id
+  operation: upsert
+  duplicate_in_file: reject
+  duplicate_reason: DUPLICATE_IN_FILE
+  lineage_column: last_batch_file
+  audit_columns: [created_at, updated_at]
+  reject:
+    table: batch_reject
+    execution_id_column: execution_id
+    key_column: record_key
+    reason_column: reason_code
+
+scenarios:
+  positive:
+    description: Eligible customers, unchanged values
+  boundary_max_credit:
+    description: Highest credit limit the feed allows
+    set: {credit_limit: 9999999.99}
+    records: all
+  boundary_zero_credit:
+    description: Credit limit of exactly zero is valid
+    set: {credit_limit: 0}
+    records: all
+  special_characters:
+    description: XML-significant characters must be escaped and stored verbatim
+    set: {last_name: "O'Brien & Sons <Ltd>"}
+  partial_rejection:
+    description: First record has a negative credit limit; batch must reject only that record
+    set: {credit_limit: -500}
+    records: [0]
+    expect: partial_rejection
+  duplicate_records:
+    description: Same customer twice in one file; second occurrence rejected
+    duplicate: [0]
+    expect: partial_rejection
+  unknown_customer:
+    description: Customer not yet in master (synthetic) — exercises the insert path
+    synthetic: true
+  missing_mandatory:
+    description: Email removed — XSD must block the file
+    drop: [email]
+    expect: blocked
+  invalid_type:
+    description: Non-numeric credit limit — blocked before submission
+    set: {credit_limit: "ABC"}
+    expect: blocked
+  invalid_email:
+    description: Business rule BR-CUST-001 blocks a malformed email
+    set: {email: "not-an-email"}
+    expect: blocked
+  empty_file:
+    description: No records — XSD requires at least one Customer
+    empty: true
+    expect: blocked
+  malformed_file:
+    description: Truncated XML pushed on purpose; batch must FAIL without partial writes
+    malformed: true
+    force_submit_invalid: true
+    expect: batch_failed

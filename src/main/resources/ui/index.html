@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Batch Test Console</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Batch Test Console</div>
+  <div class="env" data-testid="env-badge">…</div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="catalogue" data-testid="tab-catalogue" class="active">1 · Job catalogue</button>
+  <button role="tab" data-tab="data" data-testid="tab-data">2 · Test data</button>
+  <button role="tab" data-tab="monitor" data-testid="tab-monitor">3 · Execution monitor</button>
+  <button role="tab" data-tab="validation" data-testid="tab-validation">4 · Database validation</button>
+  <button role="tab" data-tab="reports" data-testid="tab-reports">Reports</button>
+</nav>
+
+<main>
+  <div class="toast" data-testid="toast" hidden></div>
+
+  <!-- Screen 1 -->
+  <section id="catalogue" class="screen active" data-testid="screen-catalogue">
+    <h1>Batch job catalogue</h1>
+    <p class="muted">Jobs are registered by configuration in <code>jobs/&lt;job-id&gt;/</code>. Invalid jobs are listed with the reason.</p>
+    <div class="scroll"><table class="grid-table" data-testid="catalogue-table">
+      <thead><tr><th>Batch job</th><th>Job ID</th><th>Format</th><th>Cloud</th><th>Inbound location</th><th>DB profile</th>
+        <th>Status table</th><th>Template</th><th>Schema</th><th>Configuration</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="panel" data-testid="config-panel" hidden>
+      <div class="panel-head"><h2 data-testid="config-title"></h2><button class="link" data-close>Close</button></div>
+      <pre data-testid="config-body"></pre>
+    </div>
+  </section>
+
+  <!-- Screen 2 -->
+  <section id="data" class="screen" data-testid="screen-data">
+    <h1>Test data generation <span class="muted" data-testid="selected-job">— select a job in the catalogue</span></h1>
+    <div class="form">
+      <label>Test scenario
+        <select data-testid="scenario"></select>
+      </label>
+      <label>Number of records <input type="number" min="1" value="3" data-testid="count"></label>
+      <label class="wide">Business identifiers (optional, comma separated)
+        <input type="text" placeholder="e.g. C000001, C000003" data-testid="keys">
+      </label>
+      <label class="wide"><span>Field overrides (optional, one per line: <code>all.field=value</code> or <code>0.field=value</code>)</span>
+        <textarea rows="2" data-testid="overrides"></textarea>
+      </label>
+    </div>
+    <p class="muted" data-testid="scenario-description"></p>
+    <div class="actions">
+      <button data-testid="btn-load-template">Load template</button>
+      <button data-testid="btn-fetch-eligible">Fetch eligible data</button>
+      <button class="primary" data-testid="btn-generate">Generate test data</button>
+      <button data-testid="btn-validate" disabled>Validate XML/JSON</button>
+      <button data-testid="btn-preview" disabled>Preview file</button>
+      <a class="button" data-testid="btn-download" aria-disabled="true">Download file</a>
+    </div>
+
+    <div class="panel" data-testid="template-panel" hidden>
+      <div class="panel-head"><h2 data-testid="template-title">Template</h2><button class="link" data-close>Close</button></div>
+      <pre data-testid="template-body"></pre>
+    </div>
+
+    <div class="panel" data-testid="eligible-panel" hidden>
+      <div class="panel-head"><h2>Eligible data <span class="muted" data-testid="eligible-summary"></span></h2>
+        <button class="link" data-close>Close</button></div>
+      <p class="muted">Tick rows to use them as business identifiers. Sensitive columns are masked.</p>
+      <div class="scroll"><table class="grid-table" data-testid="eligible-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+
+    <div class="panel" data-testid="run-panel" hidden>
+      <div class="panel-head"><h2>Run <code data-testid="run-id"></code> <span class="state" data-testid="run-state"></span></h2></div>
+      <div class="kvs">
+        <div><b>File</b><span data-testid="file-name"></span></div>
+        <div><b>Records</b><span data-testid="record-count"></span></div>
+        <div><b>SHA-256</b><span data-testid="file-sha"></span></div>
+      </div>
+      <div class="errors" data-testid="validation-errors" hidden></div>
+      <div class="ok" data-testid="validation-ok" hidden>File passed schema and business-rule validation.</div>
+      <div class="preview" data-testid="preview-panel" hidden>
+        <h3>Preview (sensitive values masked)</h3>
+        <div class="scroll"><table class="grid-table" data-testid="preview-table"><thead></thead><tbody></tbody></table></div>
+        <pre data-testid="preview-file"></pre>
+      </div>
+      <div class="submit-box">
+        <label class="check"><input type="checkbox" data-testid="confirm-submit">
+          I confirm submitting this file to <code data-testid="submit-target"></code></label>
+        <button class="primary" data-testid="btn-submit" disabled>Submit to inbound</button>
+        <span class="muted" data-testid="submit-hint">Generate and validate first. Nothing is submitted automatically.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Screen 3 -->
+  <section id="monitor" class="screen" data-testid="screen-monitor">
+    <h1>Batch execution monitor</h1>
+    <ol class="chain" data-testid="state-chain">
+      <li data-s="CREATED">Created</li><li data-s="DATA_GENERATED">Data generated</li><li data-s="VALIDATED">Validated</li>
+      <li data-s="UPLOADED">Uploaded</li><li data-s="PROCESSING">Processing</li><li data-s="TERMINAL" data-testid="chain-terminal">Completed / Failed / Timed out</li>
+    </ol>
+    <p class="muted" data-testid="monitor-empty">No run submitted yet.</p>
+    <div class="kvs wide" data-testid="monitor-fields" hidden>
+      <div><b>Test run ID</b><span data-testid="m-run-id"></span></div>
+      <div><b>Batch job</b><span data-testid="m-job"></span></div>
+      <div><b>Generated file</b><span data-testid="m-file"></span></div>
+      <div><b>Cloud provider</b><span data-testid="m-cloud"></span></div>
+      <div class="span2"><b>Inbound location</b><span data-testid="m-inbound"></span></div>
+      <div><b>Upload status</b><span data-testid="m-upload"></span></div>
+      <div><b>Batch execution status</b><span data-testid="m-status"></span></div>
+      <div><b>Execution ID</b><span data-testid="m-exec"></span></div>
+      <div><b>Batch start</b><span data-testid="m-start"></span></div>
+      <div><b>Batch completion</b><span data-testid="m-end"></span></div>
+      <div><b>Duration</b><span data-testid="m-duration"></span></div>
+      <div><b>Records read</b><span data-testid="m-read"></span></div>
+      <div><b>Processed</b><span data-testid="m-processed"></span></div>
+      <div><b>Inserted</b><span data-testid="m-inserted"></span></div>
+      <div><b>Updated</b><span data-testid="m-updated"></span></div>
+      <div><b>Rejected</b><span data-testid="m-rejected"></span></div>
+      <div><b>Final test result</b><span data-testid="m-result"></span></div>
+    </div>
+    <p class="err" data-testid="m-error" hidden></p>
+    <h3>Events</h3>
+    <div class="scroll"><table class="grid-table" data-testid="events-table"><thead><tr><th>Time (UTC)</th><th>State</th><th>Message</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <!-- Screen 4 -->
+  <section id="validation" class="screen" data-testid="screen-validation">
+    <h1>Database validation <span data-testid="v-result"></span></h1>
+    <p class="muted" data-testid="v-summary">No reconciliation yet.</p>
+    <p><a data-testid="v-report-link" target="_blank" hidden>Open full HTML report</a></p>
+    <h3>Assertions</h3>
+    <div class="scroll"><table class="grid-table" data-testid="assertions-table">
+      <thead><tr><th>ID</th><th>Category</th><th>Rule</th><th>Expected</th><th>Actual</th><th>Status</th><th>SQL / rule evidence</th></tr></thead>
+      <tbody></tbody></table></div>
+    <h3>Expected changes (fixed before submission)</h3>
+    <div class="scroll"><table class="grid-table" data-testid="expectations-table">
+      <thead><tr><th>#</th><th>Key</th><th>Expected action</th><th>Reason</th><th>Expected target row</th></tr></thead>
+      <tbody></tbody></table></div>
+    <h3>Field-level differences</h3>
+    <div class="scroll"><table class="grid-table" data-testid="diffs-table">
+      <thead><tr><th>Assertion</th><th>Column</th><th>Expected</th><th>Actual</th><th>Kind</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <!-- Reports -->
+  <section id="reports" class="screen" data-testid="screen-reports">
+    <h1>Report history</h1>
+    <div class="form">
+      <label>Job <select data-testid="f-job"><option value="">Any</option></select></label>
+      <label>Result <select data-testid="f-result"><option value="">Any</option><option>PASS</option><option>FAIL</option>
+        <option>ERROR</option><option>TIMED_OUT</option><option>NOT_FOUND</option></select></label>
+      <label>Scenario <input type="text" data-testid="f-scenario"></label>
+      <label>Date <input type="date" data-testid="f-date"></label>
+      <div class="actions"><button data-testid="btn-filter">Filter</button></div>
+    </div>
+    <div class="scroll"><table class="grid-table" data-testid="reports-table">
+      <thead><tr><th>Run</th><th>Job</th><th>Env</th><th>Scenario</th><th>Result</th><th>Summary</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

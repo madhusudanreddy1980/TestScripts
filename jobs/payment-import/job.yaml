@@ -1,0 +1,105 @@
+job_id: payment-import
+name: Payment Import (JSON)
+description: Outward payment instructions posted to the payment ledger (insert-only)
+database: core_db
+
+file:
+  format: json
+  template: template.json.ftl
+  schema_file: schema.json
+  schema_version: "2.1"
+  naming: "PAYIMP_{date}_{run_id}.json"
+  records_path: payments
+  max_records: 10000
+
+fields:
+  - {name: payment_ref,    type: string,  source_column: payment_ref}
+  - {name: correlation_id, type: string,  generator: uuid}
+  - {name: account_no,     type: string,  source_column: debit_account, sensitive: true, mask: partial,
+     synthetic: "9000000{i:05d}"}
+  - {name: amount,         type: decimal, source_column: amount, overridable: true}
+  - {name: currency,       type: string,  source_column: currency, overridable: true, synthetic: INR}
+  - {name: value_date,     type: date,    source_column: value_date, overridable: true}
+  - {name: narrative,      type: string,  source_column: narrative, required: false, max_length: 140}
+
+eligibility:
+  query_file: eligible-data.sql
+  key_column: payment_ref
+  params: {status: PENDING_EXPORT}
+  assertions:
+    - "status == 'PENDING_EXPORT'"
+    - "amount > 0"
+
+inbound:
+  prefix: inbound/payments
+
+monitoring:
+  status_table: batch_execution_status
+  execution_id_column: execution_id
+  file_name_column: file_name
+  status_column: status
+  start_time_column: started_at
+  end_time_column: completed_at
+  error_column: error_message
+  count_columns:
+    records_read: records_read
+    records_processed: records_processed
+    records_inserted: records_inserted
+    records_updated: records_updated
+    records_rejected: records_rejected
+  running_statuses: [QUEUED, RUNNING]
+  success_statuses: [COMPLETED, COMPLETED_WITH_REJECTS]
+  failure_statuses: [FAILED, ABORTED]
+
+target:
+  table: payment_ledger
+  key_column: payment_ref
+  record_key_field: payment_ref
+  operation: insert
+  existing_reason: DUPLICATE_PAYMENT
+  duplicate_in_file: reject
+  lineage_column: batch_file
+  audit_columns: [posted_at]
+  reject:
+    table: batch_reject
+    execution_id_column: execution_id
+    key_column: record_key
+    reason_column: reason_code
+
+scenarios:
+  positive:
+    description: Pending payments posted as-is
+  boundary_large_amount:
+    description: Largest amount the schema allows
+    set: {amount: 99999999.99}
+    records: all
+  partial_rejection:
+    description: Unsupported currency on the first payment
+    set: {currency: XYZ}
+    records: [0]
+    expect: partial_rejection
+  zero_amount:
+    description: Zero amount passes the schema but the ledger must reject it
+    set: {amount: 0}
+    records: [0]
+    expect: partial_rejection
+  duplicate_records:
+    description: Same payment twice in one file
+    duplicate: [0]
+    expect: partial_rejection
+  synthetic_payments:
+    description: Synthetic references for an isolated insert-path check
+    synthetic: true
+  missing_mandatory:
+    drop: [amount]
+    expect: blocked
+  invalid_type:
+    set: {amount: "TEN"}
+    expect: blocked
+  empty_file:
+    empty: true
+    expect: blocked
+  malformed_file:
+    malformed: true
+    force_submit_invalid: true
+    expect: batch_failed
